@@ -1,12 +1,14 @@
-mod git;
+mod actions;
+mod api;
 mod profile;
 mod settings;
 
-use crate::{git::GitActions, settings::SettingsActions};
 use clap::{arg, command, Parser, Subcommand};
 use color_eyre::Result;
 use std::{process::Stdio, str};
 use tokio::process::Command;
+
+use crate::{actions::GitActions, settings::SettingsActions};
 
 #[derive(Parser)]
 #[command(name = "Git CLI")]
@@ -28,7 +30,7 @@ enum CliCommands {
     Clone {
         /// Sets the remote url
         #[arg(short, long)]
-        url: String,
+        url: Option<String>,
 
         /// The destination directory
         #[arg(short, long)]
@@ -84,7 +86,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn new_git_command(args: Vec<&str>) -> Command {
+fn new_git_command(args: &[&str]) -> Command {
     let mut command = Command::new("git");
     command.stdin(Stdio::null());
     command.stdout(Stdio::inherit());
