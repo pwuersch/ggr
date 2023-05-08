@@ -1,47 +1,69 @@
+mod git;
+mod profile;
+mod settings;
+
+use crate::{git::GitActions, settings::SettingsActions};
 use clap::{arg, command, Parser, Subcommand};
 use color_eyre::Result;
-use serde::{Deserialize, Serialize};
 use std::{process::Stdio, str};
 use tokio::process::Command;
 
 #[derive(Parser)]
 #[command(name = "Git CLI")]
-#[command(author = "Philipp Würsch")]
-#[command(version = "1.0")]
-#[command(about = "Does cool things with git repos", long_about = None)]
+#[command(author = clap::crate_authors!())]
+#[command(version = clap::crate_version!())]
+#[command(about = clap::crate_description!(), long_about = None)]
 struct Cli {
-    #[arg(help = "Enables verbose logging (debug output)")]
     #[arg(short, long, global = true)]
+    /// Enables verbose logging (debug output)
     verbose: bool,
 
     #[command(subcommand)]
-    command: Commands,
+    command: CliCommands,
 }
 
 #[derive(Subcommand)]
-enum Commands {
-    #[command(about = "Clones a repository")]
+enum CliCommands {
+    /// Clones a repository
     Clone {
-        #[arg(help = "Sets the remote url")]
+        /// Sets the remote url
         #[arg(short, long)]
         url: String,
 
-        #[arg(help = "The destination directory")]
+        /// The destination directory
         #[arg(short, long)]
         directory: Option<String>,
     },
-    #[command(about = "Configures a repository with one of your profiles")]
+    /// Configures a repository with one of your profiles
     Config {
-        #[arg(help = "The name of the profile to use")]
+        /// The name of the profile to use
         #[arg(short, long)]
         profile: Option<String>,
     },
-    #[command(about = "Commits all local changes")]
+    /// Commits all local changes
     Commit {
-        #[arg(help = "The commit message")]
+        /// The commit message
         #[arg(short, long)]
         message: Option<String>,
     },
+    /// Manages the local profiles
+    Settings(Settings),
+}
+
+#[derive(Parser)]
+struct Settings {
+    #[command(subcommand)]
+    settings_commands: SettingsCommands,
+}
+
+#[derive(Subcommand)]
+enum SettingsCommands {
+    /// Lists all the profiles
+    List,
+    /// Adds a new profile
+    Add,
+    /// Removes an existing profile
+    Remove,
 }
 
 #[tokio::main]
@@ -49,98 +71,17 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Clone { url, directory } => clone(url, directory).await?,
-        Commands::Config { profile } => config(profile).await?,
-        Commands::Commit { message } => commit(message).await?,
+        CliCommands::Clone { url, directory } => GitActions::clone(url, directory).await?,
+        CliCommands::Config { profile } => GitActions::config(profile).await?,
+        CliCommands::Commit { message } => GitActions::commit(message).await?,
+        CliCommands::Settings(settings) => match settings.settings_commands {
+            SettingsCommands::List => SettingsActions::list().await?,
+            SettingsCommands::Add => SettingsActions::add().await?,
+            SettingsCommands::Remove => SettingsActions::remove().await?,
+        },
     };
 
     Ok(())
-}
-
-async fn clone(url: String, directory: Option<String>) -> Result<()> {
-    new_git_command(vec![
-        "clone",
-        &url,
-        &directory.unwrap_or("./destination".to_string()),
-    ])
-    .spawn()?
-    .wait()
-    .await?;
-
-    Ok(())
-}
-
-async fn config(profile: Option<String>) -> Result<()> {
-    let mut manager = ProfileManager::new();
-    manager.load_profiles().await?;
-    let profile = manager.find_profile_by_name(&profile.unwrap_or("Test".to_string()));
-    dbg!(profile);
-
-    Ok(())
-}
-
-async fn commit(message: Option<String>) -> Result<()> {
-    let message = match message {
-        Some(message) => message,
-        None => "chore: some default message".to_string(), // TODO: get interactive message input
-    };
-
-    let mut command = new_git_command(vec!["commit", "-m", &message]);
-    command.spawn()?.wait().await?;
-
-    Ok(())
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ProfileManager {
-    profiles: Vec<Profile>,
-}
-
-#[derive(Serialize, Deserialize, Default, Debug)]
-pub struct Profile {
-    name: String,
-    git: GitProfile,
-}
-
-#[derive(Serialize, Deserialize, Default, Debug)]
-pub struct GitProfile {
-    commit_name: String,
-    commit_email: String,
-}
-
-impl ProfileManager {
-    pub fn new() -> ProfileManager {
-        ProfileManager::default()
-    }
-
-    pub async fn load_profiles(&mut self) -> Result<()> {
-        self.profiles.push(Profile {
-            name: "GitLab".to_string(),
-            git: GitProfile {
-                commit_name: "Philipp".to_string(),
-                commit_email: "philipp@wuersch.org".to_string(),
-            },
-        });
-        Ok(())
-    }
-
-    pub fn find_profile_by_name(&self, profile_name: &str) -> Option<&Profile> {
-        self.profiles
-            .iter()
-            .find(|profile| profile.name == profile_name)
-    }
-
-    pub async fn save_profiles() -> Result<()> {
-        Ok(())
-    }
-}
-
-impl Default for ProfileManager {
-    fn default() -> Self {
-        ProfileManager {
-            profiles: Vec::with_capacity(8),
-        }
-    }
 }
 
 fn new_git_command(args: Vec<&str>) -> Command {

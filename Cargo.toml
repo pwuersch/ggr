@@ -1,7 +1,12 @@
 [package]
 name = "git-cli"
+description = "Does cool things with Git repos"
 version = "0.1.0"
 edition = "2021"
+include = [
+    "**/*.rs",
+    "Cargo.toml",
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -13,6 +18,7 @@ path = "src/main.rs"
 clap = { version = "4.2", features = ["derive", "cargo"] }
 color-eyre = "0.6.2"
 git2 = "0.17"
+inquire = "0.6"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.28", features = ["full"] }
