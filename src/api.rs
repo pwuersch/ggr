@@ -56,15 +56,14 @@ impl GitHubAdapter {
             .send()
             .await?;
 
-        let reponse_repos: Vec<github_types::Repository> = response.json().await?;
-        let repos = reponse_repos.iter().map(Repo::from).collect();
-        dbg!(&repos);
+        let repos = response
+            .json::<Vec<github_types::Repository>>()
+            .await?
+            .iter()
+            .map(Repo::from)
+            .collect();
 
-        let _ = inquire::Select::new("Select a repository you want to clone", repos)
-            .with_page_size(15)
-            .prompt()?;
-
-        Ok(vec![])
+        Ok(repos)
     }
 }
 

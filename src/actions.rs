@@ -14,15 +14,6 @@ impl GitActions {
             dbg!(repos);
         }
 
-        // new_git_command(&[
-        //     "clone",
-        //     &url,
-        //     &directory.unwrap_or("./destination".to_string()),
-        // ])
-        // .spawn()?
-        // .wait()
-        // .await?;
-
         Ok(())
     }
 
